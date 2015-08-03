@@ -192,48 +192,147 @@ function adj_matrix = pruferToTree( prufer_seq, n_vertices )
     
 end
 
-function alternating = isAlternating(adj_matrix, n_vertices)
-    % Checks if an adjacency matrix corresponds to an alternating tree
+function lbs_graph = traverseTree(root, nodes, graph)
+    if nodes(root).left == 0 && nodes(root).right == 0
+        lbs_graph = graph;
+        return;
+    end
+    
+                                fprintf('ROOT: %s\n', nodes(root).val);
+    
+    arrowhead_left = '';
+    arrowhead_right = '';
+    
+    visible_left = 1;
+    visible_right = 1;
+    
+    target_left = '';
+    target_right = '';
+    
+    source = num2str(root);
+    
+    if nodes(root).left == 0
+        target_left = ['null' num2str(root)];
+        graph.addNode(target_left, 'point', 0);
+        arrowhead_left = 'none';
+        visible_left = 0;
+    else
+        target_left = num2str(nodes(root).left);
+        graph.addNode(target_left, 'circle', 1);
+    end
+    
+    if nodes(root).right == 0
+        target_right = ['null' num2str(root)];
+        graph.addNode(target_right, 'point', 0);
+        arrowhead_right = 'none';
+        visible_right = 0;
+    else
+        target_right = num2str(nodes(root).right);
+        graph.addNode(target_right, 'circle', 1);
+    end
+    
+                            disp(graph.m_valid_nodes)
+
+                            disp(target_left)
+                            disp(target_right)
+    
+    graph.addConnection(source, target_left, visible_left, arrowhead_left);
+    graph.addConnection(source, target_right, visible_right, ...
+        arrowhead_right);
+    
+    left_graph = DotGraph(DotType.digraph);
+    right_graph = DotGraph(DotType.digraph);
+    
+    left_graph.addNode(target_left, '', 1);
+    right_graph.addNode(target_right, '', 1);
+
+    if nodes(root).left ~= 0
+        left_graph = traverseTree(nodes(root).left, nodes, left_graph);
+    end
+    if nodes(root).right ~= 0
+        right_graph = traverseTree(nodes(root).right, nodes, right_graph);
+    end
+    
+    graph.appendGraph(left_graph, 1);
+    graph.appendGraph(right_graph, 1);
+    
+    lbs_graph = graph;
+end
+
+function lbs_graph = genLbsGraph(adj_matrix)
+
+    [root_val, nodes] = altTree2LbsTree(adj_matrix);
+    
+    %lbs_graph_start = DotGraph(DotType.digraph);
+    %lbs_graph_start.addNode(num2str(root_val), 'circle', 1);
+    
+      %                  assignin('base', 'lbs', nodes);
+     %                   assignin('base', 'rn', root_val);
+    
+    %lbs_graph = traverseTree(root_val, nodes, lbs_graph_start);
+    lbs_graph = '';
+end
+
+function exportGraphs(trees, n_vertices)
+    % Exports graphs to PDF. This requires neato (graphviz) and pdflatex
+    % to be installed.
     %
     % Parameters:
-    %    adj_matrix - Adjacency matrix to check
-    %    n_vertices - Number of vertices in tree
-    %
-    % Output:
-    %    alternating - 0: not alternating
-    %                  1: alternating
-
-    alternating = 1; % Assume alternating
+    %    trees      - Cell array of trees
+    %    n_vertices - Number of vertices in the trees
     
-    for i=2:n_vertices
+    global NEATO_PATH;
+    global PDFLATEX_PATH;
+    
+    DOT_FOLDER = 'dot';
+
+    if ~exist(DOT_FOLDER, 'dir')
+        mkdir(DOT_FOLDER);
+    end
+    
+    for tree_idx=1:size(trees, 1)
         
-        left_positive = 0;
-        right_positive = 0;
+        file_name_base = [DOT_FOLDER '/seq_' ...
+            pruferString(trees{tree_idx,2}, n_vertices)];
         
-        for j=1:i-1
-            if adj_matrix(i,j) == 1
-                left_positive = 1;
-                break;
+        file_name = [file_name_base '.gv'];
+        file_name_pdf = [file_name_base '.pdf'];
+        
+        file_name_lbs = [file_name_base '_lbs.gv'];
+        file_name_lbs_pdf = [file_name_base '_lbs.pdf'];
+        
+        %if (~exist(file_name, 'file'))
+            
+            adj_matrix = trees{tree_idx, 1};
+            
+            cur_graph = DotGraph(DotType.graph);
+            
+            for k=1:n_vertices
+                cur_graph.addNode(num2str(k), 'circle', 1);
             end
-        end
-        
-        for j=i+1:n_vertices
-            if adj_matrix(i,j) == 1
-                right_positive = 1;
+            
+            for i=1:n_vertices
+                for j=i+1:n_vertices
+                    
+                    if (adj_matrix(i,j) == 1)
+                        cur_graph.addConnection(num2str(i), num2str(j), 1);
+                    end
+                end
             end
-        end
-        
-        % If adj_matrix has ones on both sides of the main diagonal,
-        % the tree is not alternating, so return 0.
-        if left_positive == 1 && right_positive == 1
-            alternating = 0;
-            break;
-        end
+            
+            %assignin('base', 'asdf', cur_graph);
+            cur_graph.writeDotFile(file_name);
+            
+            lbs_graph = genLbsGraph(adj_matrix);
+            
+            %lbs_graph.writeDotFile(file_name_lbs);
+            
+        %end
         
     end
 end
 
-function exportGraphs(trees, n_vertices)
+function exportGraphsOld(trees, n_vertices)
     % Exports graphs to PDF. This requires neato (graphviz) and pdflatex
     % to be installed.
     %
