@@ -92,7 +92,7 @@ function [ root_val, nodes ] = altTree2LbsTree( adj_matrix )
             
             cur_child = parent_idx;
             
-            if cur_child > children(i)
+            if cur_child > children(1)
                 for j=1:n_children
                     nodes(cur_child).left = children(n_children + 1 - j);
                     cur_child = children(n_children + 1 - j);

@@ -197,11 +197,9 @@ function lbs_graph = traverseTree(root, nodes, graph)
         lbs_graph = graph;
         return;
     end
-    
-                                fprintf('ROOT: %s\n', nodes(root).val);
-    
-    arrowhead_left = '';
-    arrowhead_right = '';
+
+    arrowhead_left = 'none';
+    arrowhead_right = 'none';
     
     visible_left = 1;
     visible_right = 1;
@@ -214,7 +212,6 @@ function lbs_graph = traverseTree(root, nodes, graph)
     if nodes(root).left == 0
         target_left = ['null' num2str(root)];
         graph.addNode(target_left, 'point', 0);
-        arrowhead_left = 'none';
         visible_left = 0;
     else
         target_left = num2str(nodes(root).left);
@@ -224,17 +221,11 @@ function lbs_graph = traverseTree(root, nodes, graph)
     if nodes(root).right == 0
         target_right = ['null' num2str(root)];
         graph.addNode(target_right, 'point', 0);
-        arrowhead_right = 'none';
         visible_right = 0;
     else
         target_right = num2str(nodes(root).right);
         graph.addNode(target_right, 'circle', 1);
     end
-    
-                            disp(graph.m_valid_nodes)
-
-                            disp(target_left)
-                            disp(target_right)
     
     graph.addConnection(source, target_left, visible_left, arrowhead_left);
     graph.addConnection(source, target_right, visible_right, ...
@@ -252,10 +243,10 @@ function lbs_graph = traverseTree(root, nodes, graph)
     if nodes(root).right ~= 0
         right_graph = traverseTree(nodes(root).right, nodes, right_graph);
     end
-    
-    graph.appendGraph(left_graph, 1);
-    graph.appendGraph(right_graph, 1);
-    
+
+    graph.appendGraph(left_graph, 1)
+    graph.appendGraph(right_graph, 1)
+
     lbs_graph = graph;
 end
 
@@ -263,14 +254,14 @@ function lbs_graph = genLbsGraph(adj_matrix)
 
     [root_val, nodes] = altTree2LbsTree(adj_matrix);
     
-    %lbs_graph_start = DotGraph(DotType.digraph);
-    %lbs_graph_start.addNode(num2str(root_val), 'circle', 1);
+    lbs_graph_start = DotGraph(DotType.digraph);
+    lbs_graph_start.addNode(num2str(root_val), 'circle', 1);
     
       %                  assignin('base', 'lbs', nodes);
      %                   assignin('base', 'rn', root_val);
     
-    %lbs_graph = traverseTree(root_val, nodes, lbs_graph_start);
-    lbs_graph = '';
+    lbs_graph = traverseTree(root_val, nodes, lbs_graph_start);
+
 end
 
 function exportGraphs(trees, n_vertices)
@@ -290,6 +281,10 @@ function exportGraphs(trees, n_vertices)
         mkdir(DOT_FOLDER);
     end
     
+    log_file = 'export.log';
+    
+    log_file_idx = fopen(log_file, 'w');
+    
     for tree_idx=1:size(trees, 1)
         
         file_name_base = [DOT_FOLDER '/seq_' ...
@@ -301,7 +296,7 @@ function exportGraphs(trees, n_vertices)
         file_name_lbs = [file_name_base '_lbs.gv'];
         file_name_lbs_pdf = [file_name_base '_lbs.pdf'];
         
-        %if (~exist(file_name, 'file'))
+        if (~exist(file_name, 'file'))
             
             adj_matrix = trees{tree_idx, 1};
             
@@ -323,13 +318,24 @@ function exportGraphs(trees, n_vertices)
             %assignin('base', 'asdf', cur_graph);
             cur_graph.writeDotFile(file_name);
             
+            disp(file_name_lbs);
+            
             lbs_graph = genLbsGraph(adj_matrix);
+
+            lbs_graph.writeDotFile(file_name_lbs);
             
-            %lbs_graph.writeDotFile(file_name_lbs);
-            
-        %end
+        end
+        
+        command_pdf = [NEATO_PATH ' -Tpdf ' file_name ' > ' file_name_pdf];
+        command_pdf_lbs = [NEATO_PATH ' -Tpdf ' file_name_lbs ...
+            ' > ' file_name_lbs_pdf];
+        
+        evalc('system(command_pdf)');
+        evalc('system(command_pdf_lbs)');
         
     end
+    
+    fclose(log_file_idx);
 end
 
 function exportGraphsOld(trees, n_vertices)
