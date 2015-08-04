@@ -264,6 +264,35 @@ function lbs_graph = genLbsGraph(adj_matrix)
 
 end
 
+function saveLogEntry(log_file_idx, log_entry)
+    fprintf(log_file_idx, '[%s] %s\n', datestr(now), log_entry);
+end
+
+function [latex_header, latex_entry, latex_footer] = loadLatexTemplate()
+    LATEX_HEADER = 'latex_base/01_header.tex';
+    LATEX_ENTRY  = 'latex_base/02_entry.tex';
+    LATEX_FOOTER = 'latex_base/03_footer.tex';
+    
+    latex_header = fileread(LATEX_HEADER);
+    latex_entry  = fileread(LATEX_ENTRY);
+    latex_footer = fileread(LATEX_FOOTER);
+    
+    latex_header = strrep(latex_header, '\', '\\');
+    latex_entry = strrep(latex_entry, '\', '\\');
+    latex_footer = strrep(latex_footer, '\', '\\');
+end
+
+function entry_string = getLatexEntryString(entry_base, pdf, lbs_pdf, ...
+    prufer_string)
+
+    entry_string = entry_base;
+    
+    entry_string = strrep(entry_string, '$PDF$', pdf);
+    entry_string = strrep(entry_string, '$LBS_PDF$', lbs_pdf);
+    entry_string = strrep(entry_string, '$PRUFER_STRING$', prufer_string);
+
+end
+
 function exportGraphs(trees, n_vertices)
     % Exports graphs to PDF. This requires neato (graphviz) and pdflatex
     % to be installed.
@@ -276,19 +305,33 @@ function exportGraphs(trees, n_vertices)
     global PDFLATEX_PATH;
     
     DOT_FOLDER = 'dot';
-
+    LATEX_FOLDER = 'pdf';
+    
     if ~exist(DOT_FOLDER, 'dir')
         mkdir(DOT_FOLDER);
     end
     
+    if ~exist(LATEX_FOLDER, 'dir')
+        mkdir(LATEX_FOLDER);
+    end
+    
     log_file = 'export.log';
     
-    log_file_idx = fopen(log_file, 'w');
+    latex_file = [LATEX_FOLDER '/graphs.tex'];
+    
+    [latex_header, latex_entry, latex_footer] = loadLatexTemplate();
+    
+    log_file_id = fopen(log_file, 'w');
+    latex_file_id = fopen(latex_file, 'w');
+    
+    fprintf(latex_file_id, latex_header);
     
     for tree_idx=1:size(trees, 1)
         
+        prufer_string = pruferString(trees{tree_idx,2}, n_vertices);
+        
         file_name_base = [DOT_FOLDER '/seq_' ...
-            pruferString(trees{tree_idx,2}, n_vertices)];
+            prufer_string];
         
         file_name = [file_name_base '.gv'];
         file_name_pdf = [file_name_base '.pdf'];
@@ -324,18 +367,44 @@ function exportGraphs(trees, n_vertices)
 
             lbs_graph.writeDotFile(file_name_lbs);
             
+            
+            
+        end
+        
+        entry_string = getLatexEntryString(latex_entry, ...
+                file_name_pdf, file_name_lbs_pdf, prufer_string);
+            
+        fprintf(latex_file_id, entry_string);
+        
+        if mod(tree_idx, 6) == 0
+            fprintf(latex_file_id, '\\clearpage\n');
         end
         
         command_pdf = [NEATO_PATH ' -Tpdf ' file_name ' > ' file_name_pdf];
         command_pdf_lbs = [NEATO_PATH ' -Tpdf ' file_name_lbs ...
             ' > ' file_name_lbs_pdf];
         
-        evalc('system(command_pdf)');
-        evalc('system(command_pdf_lbs)');
+        saveLogEntry(log_file_id, ['Exporting ' file_name_pdf]);
+        log_entry = evalc('system(command_pdf)');
+        saveLogEntry(log_file_id, log_entry);
+        
+        saveLogEntry(log_file_id, ['Exporting ' file_name_lbs_pdf]);
+        log_entry = evalc('system(command_pdf_lbs)');
+        saveLogEntry(log_file_id, log_entry);
         
     end
     
-    fclose(log_file_idx);
+    fprintf(latex_file_id, latex_footer);
+    
+    fclose(latex_file_id);
+    
+    pdflatex_command = [PDFLATEX_PATH ' ' latex_file];
+    log_entry = evalc('system(pdflatex_command)');
+    
+    saveLogEntry(log_file_id, log_entry);
+    
+    fclose(log_file_id);
+    
 end
 
 function exportGraphsOld(trees, n_vertices)
